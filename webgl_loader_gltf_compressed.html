@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - GLTFloader + compressed</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="main.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #info a {
+            color: #fff;
+            text-decoration: none;
+        }
+        #info a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - GLTFLoader + compression extensions<br />
+        <a href="https://sketchfab.com/3d-models/coffeemat-7fb196a40a6e4697aad9ca2f75c8b33d" target="_blank" rel="noopener">Coffeemat</a> by
+        <a href="https://sketchfab.com/OFFcours1" target="_blank" rel="noopener">Roman Red</a>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./build/three.module.js",
+                "three/examples/jsm/": "./examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+        import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+        import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+
+        let camera, scene, renderer;
+
+        init();
+        render();
+
+        function init() {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1;
+            container.appendChild(renderer.domElement);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.position.set(0, 5, 10); // Cámara más cerca para un modelo más pequeño
+
+            const environment = new RoomEnvironment();
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xbbbbbb);
+            scene.environment = pmremGenerator.fromScene(environment).texture;
+            environment.dispose();
+
+            const grid = new THREE.GridHelper(500, 10, 0xffffff, 0xffffff);
+            grid.material.opacity = 0.5;
+            grid.material.depthWrite = false;
+            grid.material.transparent = true;
+            scene.add(grid);
+
+            const ktx2Loader = new KTX2Loader()
+                .setTranscoderPath('examples/jsm/libs/basis/')
+                .detectSupport(renderer);
+
+            const loader = new GLTFLoader().setPath('examples/models/gltf/');
+            loader.setKTX2Loader(ktx2Loader);
+            loader.setMeshoptDecoder(MeshoptDecoder);
+            loader.load(
+                'coffeemat.glb',
+                function (gltf) {
+                    const model = gltf.scene;
+                    scene.add(model);
+                    // Ajustes para centrar y reducir el tamaño
+                    model.scale.set(0.1, 0.1, 0.1); // Escala mucho más pequeña, como en la referencia
+                    model.position.set(0, 0, 0); // Centra el modelo
+                    render();
+                    console.log('Modelo cargado:', model);
+                },
+                function (progress) {
+                    console.log('Cargando modelo:', (progress.loaded / progress.total) * 100 + '%');
+                },
+                function (error) {
+                    console.error('Error al cargar el modelo GLTF:', error);
+                }
+            );
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.addEventListener('change', render);
+            controls.minDistance = 5;
+            controls.maxDistance = 50;
+            controls.target.set(0, 1, 0); // Ajustado target para centrar en el modelo
+            controls.update();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            render();
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
